@@ -4,16 +4,17 @@ from ..models import Menu, MenuItem
 
 register = template.Library()
 
-@register.simple_tag
-def draw_menu(menu_name):
-    menu_items = MenuItem.objects.filter(menu__name=menu_name).select_related('parent')
-    return MenuTree(menu_items, menu_name).render()
+@register.simple_tag(takes_context=True)
+def draw_menu(context, menu_name):
+    request = context['request']
+    menu_items = MenuItem.objects.filter(menu__name=menu_name).select_related('parent').prefetch_related('children')
+    return MenuTree(menu_items, request).render()
 
 class MenuTree:
-    def __init__(self, items, menu_name):
+    def __init__(self, items, request):
         self.items = items
-        self.menu_name = menu_name
-        self.active_url = resolve('/').url_name
+        self.request = request
+        self.active_url = request.path_info  # Получаем текущий URL
 
     def build_tree(self):
         tree = {}
@@ -33,7 +34,7 @@ class MenuTree:
         html = []
         for node in tree.get(parent, []):
             url = node.get_absolute_url()
-            is_active = url == resolve('/').url
+            is_active = url == self.request.path_info
             is_expanded = is_active or any(self.is_descendant_active(child) for child in tree.get(node, []))
             html.append('<li class="{}">'.format('active' if is_active else ''))
             html.append('<a href="{}">{}</a>'.format(url, node.title))
@@ -46,5 +47,4 @@ class MenuTree:
     
     def is_descendant_active(self, node):
         url = node.get_absolute_url()
-        return url == resolve('/').url
-    
+        return url == self.request.path_info
