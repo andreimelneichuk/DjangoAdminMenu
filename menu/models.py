@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 class Menu(models.Model):
@@ -27,3 +28,7 @@ class MenuItem(models.Model):
         elif self.url_name:
             return reverse(self.url_name)
         return '#'
+
+    def clean(self):
+        if self.parent == self:
+            raise ValidationError("Элемент не может быть родителем самого себя.")
